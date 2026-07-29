@@ -77,7 +77,12 @@ def main():
             except Exception as e:
                 log(f"Error opening settings: {e}")
 
-        tray = TrayManager(root, config, scheduler, on_settings=open_settings)
+        # Wrap in root.after because pystray callbacks run on a background thread,
+        # and tkinter widget creation MUST happen on the main thread.
+        def open_settings_safe():
+            root.after(0, open_settings)
+
+        tray = TrayManager(root, config, scheduler, on_settings=open_settings_safe)
         log("Tray created OK")
 
         def on_closing():
