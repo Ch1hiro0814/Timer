@@ -22,7 +22,7 @@ if %errorlevel% neq 0 (
 )
 
 echo [2/3] Building exe with PyInstaller...
-pyinstaller --onefile --windowed --name "TimerReminder" --add-data "config.json;." --add-data "assets;assets" --hidden-import pystray --hidden-import PIL --hidden-import PIL.Image --hidden-import PIL.ImageDraw main.py
+pyinstaller --onefile --windowed --name "TimerReminder" --version-file version_info.txt --add-data "config.json;." --add-data "assets;assets" --hidden-import pystray --hidden-import PIL --hidden-import PIL.Image --hidden-import PIL.ImageDraw main.py
 if %errorlevel% neq 0 (
     echo [ERROR] PyInstaller build failed.
     pause
