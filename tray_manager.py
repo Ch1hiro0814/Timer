@@ -138,16 +138,17 @@ class TrayManager:
         return "定时提醒助手"
 
     def _schedule_menu_refresh(self):
-        """Periodically refresh the tray menu to update DND countdown."""
+        """Periodically refresh tooltip (cheap). Only rebuild menu on state change."""
         self._refresh_after_id = self._root.after(15000, self._on_menu_refresh_tick)
 
     def _on_menu_refresh_tick(self):
-        """Check if menu needs refresh and reschedule."""
+        """Update tooltip. Rebuild menu only when DND state transitions."""
         is_dnd = self._config.is_dnd_active
-        if self._icon and (is_dnd or self._was_dnd_active != is_dnd):
-            # Update when DND is active (countdown) or when it just expired
-            self._icon.title = self._build_tooltip()
-            self._icon.menu = self._build_menu()
+        if self._icon:
+            self._icon.title = self._build_tooltip()  # cheap: string assignment
+            if self._was_dnd_active != is_dnd:
+                # State changed — full menu rebuild
+                self._icon.menu = self._build_menu()
         self._was_dnd_active = is_dnd
         self._schedule_menu_refresh()
 
