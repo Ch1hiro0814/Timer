@@ -1,0 +1,37 @@
+{
+  "general": {
+    "work_start_time": "09:00",
+    "work_end_time": "20:30",
+    "quiet_hours_start": "12:00",
+    "quiet_hours_end": "14:00",
+    "quiet_hours_2_start": "17:30",
+    "quiet_hours_2_end": "18:00",
+    "auto_dismiss_seconds": 30,
+    "language": "zh"
+  },
+  "stand_up": {
+    "enabled": true,
+    "interval_minutes": 60,
+    "message": "该站起来活动一下啦！\n伸个懒腰，走动走动吧~ 🏃"
+  },
+  "water": {
+    "enabled": true,
+    "interval_minutes": 30,
+    "message": "该喝水了！\n补充水分，保持健康~ 💧"
+  },
+  "daily_report": {
+    "enabled": true,
+    "schedule": {
+      "0": {"time": "20:00", "message": "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"},
+      "1": {"time": "20:00", "message": "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"},
+      "2": {"time": "17:00", "message": "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"},
+      "3": {"time": "20:00", "message": "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"}
+    }
+  },
+  "weekly_report": {
+    "enabled": true,
+    "schedule": {
+      "4": {"time": "17:00", "message": "该写周报了！\n总结本周工作，规划下周计划~ 📊"}
+    }
+  }
+}
