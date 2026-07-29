@@ -1,33 +1,132 @@
 """Reminder popup window using tkinter."""
 
 import tkinter as tk
-from typing import Optional
+from tkinter import messagebox
+from typing import Optional, Callable
 
 
 # Track the currently active popup to avoid stacking multiple popups
 _active_popup: Optional['ReminderPopup'] = None
 
 
+# ---- Snooze choice dialog ----
+
+def _ask_on_close(parent: tk.Toplevel, title: str) -> str:
+    """
+    Show a small dialog when user clicks X on a reminder popup.
+    Returns 'close' or 'snooze'.
+    """
+    dialog = tk.Toplevel(parent)
+    dialog.title("")
+    dialog.configure(bg="#2C3E50")
+    dialog.resizable(False, False)
+    dialog.attributes("-topmost", True)
+    dialog.transient(parent)
+
+    # Remove title bar for cleaner look
+    dialog.overrideredirect(True)
+
+    frame = tk.Frame(dialog, bg="#2C3E50", padx=25, pady=20)
+    frame.pack()
+
+    tk.Label(
+        frame, text=title,
+        font=("Microsoft YaHei", 13, "bold"),
+        fg="#ECF0F1", bg="#2C3E50",
+    ).pack(pady=(0, 12))
+
+    btn_frame = tk.Frame(frame, bg="#2C3E50")
+    btn_frame.pack()
+
+    result = ["close"]  # mutable container
+
+    def do_close():
+        result[0] = "close"
+        dialog.destroy()
+
+    def do_snooze():
+        result[0] = "snooze"
+        dialog.destroy()
+
+    # Close button
+    close_btn = tk.Button(
+        btn_frame,
+        text="✕  关闭提醒",
+        command=do_close,
+        font=("Microsoft YaHei", 11),
+        fg="white", bg="#E74C3C",
+        activebackground="#C0392B", activeforeground="white",
+        relief=tk.FLAT, padx=18, pady=6, cursor="hand2",
+    )
+    close_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+    # Snooze button
+    snooze_btn = tk.Button(
+        btn_frame,
+        text="🕐 5分钟后提醒",
+        command=do_snooze,
+        font=("Microsoft YaHei", 11, "bold"),
+        fg="white", bg="#2980B9",
+        activebackground="#1A6FA0", activeforeground="white",
+        relief=tk.FLAT, padx=18, pady=6, cursor="hand2",
+    )
+    snooze_btn.pack(side=tk.LEFT)
+
+    # Hover effects
+    close_btn.bind("<Enter>", lambda e: close_btn.configure(bg="#C0392B"))
+    close_btn.bind("<Leave>", lambda e: close_btn.configure(bg="#E74C3C"))
+    snooze_btn.bind("<Enter>", lambda e: snooze_btn.configure(bg="#1A6FA0"))
+    snooze_btn.bind("<Leave>", lambda e: snooze_btn.configure(bg="#2980B9"))
+
+    # Keyboard shortcuts
+    dialog.bind("<Escape>", lambda e: do_close())
+    dialog.bind("<Return>", lambda e: do_snooze())
+
+    # Center relative to parent
+    dialog.update_idletasks()
+    pw = parent.winfo_width()
+    ph = parent.winfo_height()
+    px = parent.winfo_x()
+    py = parent.winfo_y()
+    dw = dialog.winfo_width()
+    dh = dialog.winfo_height()
+    x = px + (pw - dw) // 2
+    y = py + (ph - dh) // 2
+    dialog.geometry(f"+{x}+{y}")
+
+    # Add a subtle border
+    dialog.configure(highlightbackground="#34495E", highlightthickness=1)
+
+    dialog.focus_force()
+    dialog.grab_set()
+    parent.wait_window(dialog)
+
+    return result[0]
+
+
+# ---- Main Popup ----
+
 class ReminderPopup:
     """A centered, always-on-top popup window for reminders."""
 
-    # Theme colors
     BG_COLOR = "#2C3E50"
     FG_COLOR = "#ECF0F1"
     ACCENT_COLOR = "#3498DB"
     BTN_COLOR = "#2980B9"
     BTN_HOVER = "#1A6FA0"
+    SNOOZE_COLOR = "#27AE60"
+    SNOOZE_HOVER = "#219A52"
+    CLOSE_COLOR = "#E74C3C"
+    CLOSE_HOVER = "#C0392B"
 
-    def __init__(self, root: tk.Tk, title: str, message: str, auto_dismiss: int = 30):
-        """
-        Create and show a reminder popup.
-
-        Args:
-            root: The root tk.Tk instance.
-            title: Window title / reminder type label.
-            message: The message text to display.
-            auto_dismiss: Seconds until auto-dismiss (0 = no auto-dismiss).
-        """
+    def __init__(
+        self,
+        root: tk.Tk,
+        title: str,
+        message: str,
+        auto_dismiss: int = 30,
+        on_snooze: Optional[Callable] = None,
+    ):
         global _active_popup
 
         # Dismiss any existing popup first
@@ -38,8 +137,12 @@ class ReminderPopup:
                 pass
 
         self._root = root
+        self._title = title
+        self._message = message
         self._auto_dismiss = auto_dismiss
+        self._on_snooze = on_snooze
         self._after_id: Optional[str] = None
+        self._countdown_remaining = auto_dismiss
 
         # Create toplevel window
         self._window = tk.Toplevel(root)
@@ -48,15 +151,8 @@ class ReminderPopup:
         self._window.resizable(False, False)
         self._window.attributes("-topmost", True)
 
-        # Remove window decorations for a cleaner look (optional: comment out for standard title bar)
-        # self._window.overrideredirect(True)
-
-        # Close button behavior
-        self._window.protocol("WM_DELETE_WINDOW", self.dismiss)
-
-        # Bind Escape key
-        self._window.bind("<Escape>", lambda e: self.dismiss())
-        self._window.bind("<Return>", lambda e: self.dismiss())
+        # X button → ask close or snooze
+        self._window.protocol("WM_DELETE_WINDOW", self._on_x_click)
 
         # ---- Build UI ----
         main_frame = tk.Frame(self._window, bg=self.BG_COLOR, padx=30, pady=20)
@@ -84,10 +180,49 @@ class ReminderPopup:
         )
         msg_label.pack(pady=(0, 15))
 
-        # Dismiss button
+        # ---- Bottom buttons ----
         btn_frame = tk.Frame(main_frame, bg=self.BG_COLOR)
         btn_frame.pack()
 
+        # Close button (left, red)
+        close_btn = tk.Button(
+            btn_frame,
+            text="✕  关闭",
+            command=self.dismiss,
+            font=("Microsoft YaHei", 10),
+            fg="white",
+            bg=self.CLOSE_COLOR,
+            activebackground=self.CLOSE_HOVER,
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=16,
+            pady=6,
+            cursor="hand2",
+        )
+        close_btn.pack(side=tk.LEFT, padx=(0, 8))
+        close_btn.bind("<Enter>", lambda e: close_btn.configure(bg=self.CLOSE_HOVER))
+        close_btn.bind("<Leave>", lambda e: close_btn.configure(bg=self.CLOSE_COLOR))
+
+        # Snooze button (middle, green)
+        snooze_btn = tk.Button(
+            btn_frame,
+            text="🕐 5分钟后",
+            command=self.snooze,
+            font=("Microsoft YaHei", 10, "bold"),
+            fg="white",
+            bg=self.SNOOZE_COLOR,
+            activebackground=self.SNOOZE_HOVER,
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=16,
+            pady=6,
+            cursor="hand2",
+        )
+        snooze_btn.pack(side=tk.LEFT, padx=(0, 8))
+        snooze_btn.bind("<Enter>", lambda e: snooze_btn.configure(bg=self.SNOOZE_HOVER))
+        snooze_btn.bind("<Leave>", lambda e: snooze_btn.configure(bg=self.SNOOZE_COLOR))
+
+        # Countdown button (right, blue)
         self._countdown_var = tk.StringVar()
         dismiss_text = f"知道了 ({auto_dismiss}s)" if auto_dismiss > 0 else "知道了"
         self._countdown_var.set(dismiss_text)
@@ -96,20 +231,17 @@ class ReminderPopup:
             btn_frame,
             textvariable=self._countdown_var,
             command=self.dismiss,
-            font=("Microsoft YaHei", 11, "bold"),
+            font=("Microsoft YaHei", 10),
             fg="white",
             bg=self.BTN_COLOR,
             activebackground=self.BTN_HOVER,
             activeforeground="white",
             relief=tk.FLAT,
-            padx=25,
+            padx=16,
             pady=6,
             cursor="hand2",
         )
-        dismiss_btn.pack()
-        self._dismiss_btn = dismiss_btn
-
-        # Add hover effect
+        dismiss_btn.pack(side=tk.LEFT)
         dismiss_btn.bind("<Enter>", lambda e: dismiss_btn.configure(bg=self.BTN_HOVER))
         dismiss_btn.bind("<Leave>", lambda e: dismiss_btn.configure(bg=self.BTN_COLOR))
 
@@ -129,8 +261,37 @@ class ReminderPopup:
         if remaining <= 0:
             self.dismiss()
             return
+        self._countdown_remaining = remaining
         self._countdown_var.set(f"知道了 ({remaining}s)")
         self._after_id = self._window.after(1000, lambda: self._update_countdown(remaining - 1))
+
+    def _on_x_click(self):
+        """Handle window close (X button) — ask user to close or snooze."""
+        choice = _ask_on_close(self._window, "关闭还是稍后提醒？")
+        if choice == "snooze":
+            self.snooze()
+        else:
+            self.dismiss()
+
+    def snooze(self):
+        """Snooze: dismiss now, re-show same reminder in 5 minutes."""
+        # Save info before dismissing
+        title = self._title
+        message = self._message
+        auto_dismiss = self._auto_dismiss
+        root = self._root
+        on_snooze = self._on_snooze
+
+        self.dismiss()
+
+        # Re-show after 5 minutes
+        root.after(300000, lambda: (
+            ReminderPopup(root, title, message, auto_dismiss, on_snooze).center_on_screen()
+        ))
+
+        # Notify callback (e.g., to track snooze in scheduler)
+        if on_snooze:
+            on_snooze()
 
     def dismiss(self):
         """Dismiss and destroy the popup."""
@@ -143,7 +304,7 @@ class ReminderPopup:
                 self._after_id = None
             self._window.destroy()
         except tk.TclError:
-            pass  # Window already destroyed
+            pass
 
     def center_on_screen(self):
         """Center the window on the primary screen."""
@@ -161,17 +322,10 @@ def show_reminder(root: tk.Tk, reminder_type: str, message: str, auto_dismiss: i
     """
     Thread-safe entry point for showing a reminder popup.
     Schedules the popup creation on the tkinter main thread.
-
-    Args:
-        root: The tkinter root window.
-        reminder_type: Category label (e.g., "起立放松", "喝水提醒", "日报提醒").
-        message: The reminder message body.
-        auto_dismiss: Seconds until auto-dismiss.
     """
     def _show():
         popup = ReminderPopup(root, reminder_type, message, auto_dismiss)
         popup.center_on_screen()
         return popup
 
-    # Schedule on the main thread
     root.after(0, _show)
