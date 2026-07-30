@@ -151,6 +151,8 @@ class SettingsWindow:
 
     # ======================== Report Tab ========================
 
+    DAY_NAMES = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+
     def _build_report_tab(self):
         frame = self._report_tab
         daily_cfg = self._config.daily_report_config
@@ -162,7 +164,7 @@ class SettingsWindow:
         schedule = daily_cfg.get("schedule", {})
         weekly_schedule = weekly_cfg.get("schedule", {})
 
-        # Daily report
+        # ---- Daily report ----
         section = tk.LabelFrame(frame, text="日报提醒", font=("Microsoft YaHei", 11, "bold"),
                                 fg=self.ACCENT_COLOR, bg=self.BG_COLOR, padx=10, pady=10)
         section.pack(fill=tk.X, padx=10, pady=(10, 5))
@@ -171,15 +173,25 @@ class SettingsWindow:
                        font=("Microsoft YaHei", 10), fg=self.FG_COLOR, bg=self.BG_COLOR,
                        selectcolor=self.BG_COLOR, activebackground=self.BG_COLOR).pack(anchor=tk.W)
 
-        schedule_text = (
-            "📅 周一 20:00  |  周二 20:00  |  周三 17:00  |  周四 20:00"
-        )
-        tk.Label(section, text=schedule_text, font=("Microsoft YaHei", 9),
-                 fg="#BDC3C7", bg=self.BG_COLOR).pack(anchor=tk.W, pady=(2, 5))
+        # Editable time row for Mon/Tue/Wed/Thu
+        self._daily_time_vars = {}
+        time_row = tk.Frame(section, bg=self.BG_COLOR)
+        time_row.pack(fill=tk.X, pady=(5, 5))
+        day_keys = [("0", "周一"), ("1", "周二"), ("2", "周三"), ("3", "周四")]
+        for dk, dn in day_keys:
+            day_frame = tk.Frame(time_row, bg=self.BG_COLOR)
+            day_frame.pack(side=tk.LEFT, padx=3)
+            tk.Label(day_frame, text=dn, font=("Microsoft YaHei", 9),
+                     fg="#BDC3C7", bg=self.BG_COLOR).pack()
+            default_time = schedule.get(dk, {}).get("time", "20:00")
+            tv = tk.StringVar(value=default_time)
+            self._daily_time_vars[dk] = tv
+            tk.Entry(day_frame, textvariable=tv, font=("Microsoft YaHei", 9),
+                     fg=self.FG_COLOR, bg="#34495E", width=7, relief=tk.FLAT,
+                     justify=tk.CENTER).pack()
 
         tk.Label(section, text="提醒文字:", font=("Microsoft YaHei", 10),
-                 fg=self.FG_COLOR, bg=self.BG_COLOR).pack(anchor=tk.W)
-        # Use Monday's message as default
+                 fg=self.FG_COLOR, bg=self.BG_COLOR).pack(anchor=tk.W, pady=(5, 0))
         default_daily_msg = schedule.get("0", {}).get("message", "")
         d_msg = tk.Text(section, height=3, font=("Microsoft YaHei", 10),
                         fg=self.FG_COLOR, bg="#34495E", wrap=tk.WORD, relief=tk.FLAT, padx=5, pady=5)
@@ -187,7 +199,7 @@ class SettingsWindow:
         d_msg.pack(fill=tk.X, pady=(0, 5))
         self._daily_msg_text = d_msg
 
-        # Weekly report
+        # ---- Weekly report ----
         section2 = tk.LabelFrame(frame, text="周报提醒", font=("Microsoft YaHei", 11, "bold"),
                                  fg=self.ACCENT_COLOR, bg=self.BG_COLOR, padx=10, pady=10)
         section2.pack(fill=tk.X, padx=10, pady=5)
@@ -196,9 +208,25 @@ class SettingsWindow:
                        font=("Microsoft YaHei", 10), fg=self.FG_COLOR, bg=self.BG_COLOR,
                        selectcolor=self.BG_COLOR, activebackground=self.BG_COLOR).pack(anchor=tk.W)
 
-        tk.Label(section2, text="📅 周五 17:00", font=("Microsoft YaHei", 9),
-                 fg="#BDC3C7", bg=self.BG_COLOR).pack(anchor=tk.W, pady=(2, 5))
+        # Editable time for Friday
+        self._weekly_time_vars = {}
+        wtime_row = tk.Frame(section2, bg=self.BG_COLOR)
+        wtime_row.pack(fill=tk.X, pady=(5, 5))
+        wk_keys = [("4", "周五")]
+        for wk, wn in wk_keys:
+            wframe = tk.Frame(wtime_row, bg=self.BG_COLOR)
+            wframe.pack(side=tk.LEFT, padx=3)
+            tk.Label(wframe, text=wn, font=("Microsoft YaHei", 9),
+                     fg="#BDC3C7", bg=self.BG_COLOR).pack()
+            default_wtime = weekly_schedule.get(wk, {}).get("time", "17:00")
+            tv = tk.StringVar(value=default_wtime)
+            self._weekly_time_vars[wk] = tv
+            tk.Entry(wframe, textvariable=tv, font=("Microsoft YaHei", 9),
+                     fg=self.FG_COLOR, bg="#34495E", width=7, relief=tk.FLAT,
+                     justify=tk.CENTER).pack()
 
+        tk.Label(section2, text="提醒文字:", font=("Microsoft YaHei", 10),
+                 fg=self.FG_COLOR, bg=self.BG_COLOR).pack(anchor=tk.W, pady=(5, 0))
         default_weekly_msg = weekly_schedule.get("4", {}).get("message", "")
         w_msg = tk.Text(section2, height=3, font=("Microsoft YaHei", 10),
                         fg=self.FG_COLOR, bg="#34495E", wrap=tk.WORD, relief=tk.FLAT, padx=5, pady=5)
@@ -336,14 +364,22 @@ class SettingsWindow:
             self._config.set("daily_report", "enabled", value=self._daily_enabled_var.get())
             self._config.set("weekly_report", "enabled", value=self._weekly_enabled_var.get())
 
-            # Update messages for each day
+            # Update times and messages for each day
             schedule = self._config.daily_report_config.get("schedule", {})
             for day_key in schedule:
+                if day_key in self._daily_time_vars:
+                    time_val = self._daily_time_vars[day_key].get().strip()
+                    self._validate_time(time_val, f"日报 {self.DAY_NAMES[int(day_key)]}")
+                    schedule[day_key]["time"] = time_val
                 schedule[day_key]["message"] = daily_msg
             self._config.set("daily_report", "schedule", value=schedule)
 
             weekly_schedule = self._config.weekly_report_config.get("schedule", {})
             for day_key in weekly_schedule:
+                if day_key in self._weekly_time_vars:
+                    time_val = self._weekly_time_vars[day_key].get().strip()
+                    self._validate_time(time_val, f"周报 {self.DAY_NAMES[int(day_key)]}")
+                    weekly_schedule[day_key]["time"] = time_val
                 weekly_schedule[day_key]["message"] = weekly_msg
             self._config.set("weekly_report", "schedule", value=weekly_schedule)
 
