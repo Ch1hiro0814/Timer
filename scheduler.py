@@ -87,9 +87,10 @@ class ReminderScheduler:
 
         # ---- Health reminders (only during work hours, not in quiet hours) ----
         if not in_quiet and work_start <= current_time <= work_end:
-            # Stand-up reminder: every hour on the hour
+            # Stand-up reminder: configurable interval
             if self._config.stand_up_config.get("enabled", True):
-                if not self._was_triggered_this_hour("stand_up", now):
+                interval = self._config.stand_up_config.get("interval_minutes", 60)
+                if not self._was_triggered_this_period("stand_up", now, interval):
                     reminders_to_show.append((
                         "⏰ 起立放松",
                         self._config.stand_up_config.get(
@@ -98,9 +99,10 @@ class ReminderScheduler:
                     ))
                     self._mark_triggered("stand_up", now)
 
-            # Water reminder: every 30 minutes (on :00 and :30)
+            # Water reminder: configurable interval
             if self._config.water_config.get("enabled", True):
-                if not self._was_triggered_this_period("water", now, 30):
+                interval = self._config.water_config.get("interval_minutes", 30)
+                if not self._was_triggered_this_period("water", now, interval):
                     reminders_to_show.append((
                         "💧 喝水提醒",
                         self._config.water_config.get(
