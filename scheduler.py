@@ -9,10 +9,11 @@ from utils import (
     is_workday,
     is_in_quiet_hours,
     time_matches,
-    is_same_hour,
     is_same_period,
     is_same_day,
     parse_time_str,
+    in_last_saturday_week,
+    is_last_saturday_of_month,
 )
 from popup import show_reminder
 
@@ -39,6 +40,12 @@ class ReminderScheduler:
         """Start the scheduler in a daemon background thread."""
         if self._running:
             return
+        # Initialize last-triggered timestamps to now so the first tick
+        # doesn't fire reminders that should have already happened.
+        now = datetime.now()
+        with self._lock:
+            for key in self._last_triggered:
+                self._last_triggered[key] = now
         self._running = True
         self._thread = threading.Thread(target=self._run_loop, daemon=True, name="ReminderScheduler")
         self._thread.start()
@@ -112,35 +119,62 @@ class ReminderScheduler:
                     self._mark_triggered("water", now)
 
         # ---- Report reminders ----
-        weekday_str = str(now.weekday())  # "0"=Mon ... "6"=Sun
+        weekday = now.weekday()  # 0=Mon ... 6=Sun
+        weekday_str = str(weekday)
+        last_sat_week = in_last_saturday_week(today)
+
+        # Determine what kind of report today deserves
+        daily_day = weekday_str in self._config.daily_report_config.get("schedule", {})
+        weekly_day = weekday_str in self._config.weekly_report_config.get("schedule", {})
+
+        # In the week containing the last Saturday:
+        #   Friday  → daily report (not weekly)
+        #   Saturday → weekly report
+        if last_sat_week:
+            if weekday == 4:  # Friday
+                weekly_day = False
+                daily_day = True
+            elif weekday == 5 and is_last_saturday_of_month(today):  # Last Saturday
+                daily_day = False
+                weekly_day = True
 
         # Daily report
-        if self._config.daily_report_config.get("enabled", True):
+        if self._config.daily_report_config.get("enabled", True) and daily_day:
             schedule = self._config.daily_report_config.get("schedule", {})
             if weekday_str in schedule:
                 entry = schedule[weekday_str]
                 target_time = parse_time_str(entry["time"])
-                if time_matches(current_time, target_time):
-                    if not self._was_triggered_today("daily_report", now):
-                        reminders_to_show.append((
-                            "📝 日报提醒",
-                            entry.get("message", "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"),
-                        ))
-                        self._mark_triggered("daily_report", now)
+            else:
+                # Use Friday's daily schedule for last-Saturday-week Friday
+                friday_entry = schedule.get("4", {})
+                target_time = parse_time_str(friday_entry.get("time", "20:00"))
+                entry = friday_entry
+            if time_matches(current_time, target_time):
+                if not self._was_triggered_today("daily_report", now):
+                    reminders_to_show.append((
+                        "📝 日报提醒",
+                        entry.get("message", "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"),
+                    ))
+                    self._mark_triggered("daily_report", now)
 
-        # Weekly report (Friday)
-        if self._config.weekly_report_config.get("enabled", True):
+        # Weekly report
+        if self._config.weekly_report_config.get("enabled", True) and weekly_day:
             schedule = self._config.weekly_report_config.get("schedule", {})
             if weekday_str in schedule:
                 entry = schedule[weekday_str]
                 target_time = parse_time_str(entry["time"])
-                if time_matches(current_time, target_time):
-                    if not self._was_triggered_today("weekly_report", now):
-                        reminders_to_show.append((
-                            "📊 周报提醒",
-                            entry.get("message", "该写周报了！\n总结本周工作，规划下周计划~ 📊"),
-                        ))
-                        self._mark_triggered("weekly_report", now)
+            else:
+                # Use Friday's weekly schedule time for Saturday
+                friday_entry = schedule.get("4", {})
+                target_time = parse_time_str(friday_entry.get("time", "17:00"))
+                entry = friday_entry
+            msg = entry.get("message", "该写周报了！\n总结本周工作，规划下周计划~ 📊")
+            if weekday == 5:  # Saturday weekly
+                msg = "该写周报了！\n今天是本月最后一个工作日，总结本周工作吧~ 📊"
+            if time_matches(current_time, target_time):
+                if not self._was_triggered_today("weekly_report", now):
+                    reminders_to_show.append(("📊 周报提醒", msg))
+                    self._mark_triggered("weekly_report", now)
 
         # ---- Show reminders ----
         if reminders_to_show:
@@ -161,14 +195,6 @@ class ReminderScheduler:
                 show_reminder(self._root, combined_title, combined_message, auto_dismiss)
 
     # ---- Duplicate prevention helpers (thread-safe) ----
-
-    def _was_triggered_this_hour(self, key: str, now: datetime) -> bool:
-        """Check if this reminder was already triggered in the current clock hour."""
-        with self._lock:
-            last = self._last_triggered.get(key)
-            if last is None:
-                return False
-            return is_same_hour(last, now)
 
     def _was_triggered_this_period(self, key: str, now: datetime, period_min: int) -> bool:
         """Check if this reminder was already triggered in the current period block."""

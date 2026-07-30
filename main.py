@@ -5,7 +5,8 @@ Architecture:
   - Background daemon thread: pystray system tray icon
   - Background daemon thread: reminder scheduler
 
-This ensures tkinter UI is always responsive since it has its own dedicated event loop.
+Single-instance: second launch writes a signal file; first instance detects it
+and brings the settings window to front.
 """
 
 import tkinter as tk
@@ -17,11 +18,15 @@ from datetime import datetime
 from pathlib import Path
 
 
-def _get_log_path() -> Path:
+def _get_app_dir() -> Path:
     app_data = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-    log_dir = app_data / "TimerReminder"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    return log_dir / "app.log"
+    d = app_data / "TimerReminder"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _get_log_path() -> Path:
+    return _get_app_dir() / "app.log"
 
 
 def _setup_logging():
@@ -49,6 +54,24 @@ def _setup_logging():
 
 def main():
     log = _setup_logging()
+    signal_path = _get_app_dir() / "show.signal"
+
+    # ---- Single-instance check ----
+    from utils import acquire_single_instance_lock
+    if not acquire_single_instance_lock():
+        # Another instance is running — signal it to show the window
+        try:
+            signal_path.write_text("show")
+        except Exception:
+            pass
+        log("Another instance is running — sent show signal, exiting")
+        return
+
+    # Clean up any stale signal file from previous runs
+    try:
+        signal_path.unlink(missing_ok=True)
+    except Exception:
+        pass
 
     try:
         # ---- Config ----
@@ -71,24 +94,19 @@ def main():
         scheduler.start()
         log("Scheduler started OK")
 
-        # ---- Settings callback ----
+        # ---- Settings (singleton) ----
         from settings_window import SettingsWindow
+        settings = SettingsWindow(root, config, on_save_callback=lambda: None)
 
         def open_settings():
-            # Schedule on main thread — tkinter widgets must be created
-            # on the main thread, but pystray menu callbacks fire on tray thread.
             def _do():
                 try:
-                    settings = SettingsWindow(root, config, on_save_callback=lambda: None)
                     settings.show()
                 except Exception as e:
                     log(f"Error opening settings: {e}")
             root.after(0, _do)
 
         # ---- Tray in background thread ----
-        # On Windows, pystray works fine from a daemon thread.
-        # Keeping it off the main thread lets tkinter's mainloop process
-        # UI events smoothly (popups, settings windows).
         log("Starting tray thread...")
         from tray_manager import TrayManager
         tray = TrayManager(root, config, scheduler, on_settings=open_settings)
@@ -100,16 +118,23 @@ def main():
         tray_thread.start()
         log("Tray thread started OK")
 
-        # ---- Mainloop on main thread ----
-        # tkinter needs its event loop running to process:
-        #   - Popup creation/destruction
-        #   - Settings window interactions
-        #   - Countdown timers (root.after callbacks)
-        #   - Tray menu auto-refresh
-        log("Running tkinter mainloop...")
+        # ---- Show settings on startup (after a short delay so tray is ready) ----
+        root.after(800, open_settings)
 
+        # ---- Poll for "show" signal from second instances ----
+        def poll_signal():
+            try:
+                if signal_path.exists():
+                    signal_path.unlink()
+                    open_settings()
+            except Exception:
+                pass
+            root.after(2000, poll_signal)
+
+        root.after(2000, poll_signal)
+
+        # ---- Poll tray thread health ----
         def poll_tray():
-            """Periodic check if tray is still alive."""
             if tray_thread.is_alive():
                 root.after(2000, poll_tray)
             else:
@@ -117,7 +142,8 @@ def main():
                 scheduler.stop()
                 root.destroy()
 
-        root.after(2000, poll_tray)
+        root.after(3000, poll_tray)
+        log("Running tkinter mainloop...")
         root.mainloop()
 
     except Exception as e:
@@ -136,7 +162,6 @@ def main():
 
 
 def _run_tray(tray, log):
-    """Run pystray icon in a background thread."""
     try:
         tray.run()
     except Exception as e:

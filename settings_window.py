@@ -68,6 +68,14 @@ class SettingsWindow:
         btn_frame = tk.Frame(self._window, bg=self.BG_COLOR, padx=10, pady=10)
         btn_frame.pack(fill=tk.X)
 
+        # Save status label (hidden by default)
+        self._save_status_var = tk.StringVar()
+        save_status = tk.Label(
+            btn_frame, textvariable=self._save_status_var,
+            font=("Microsoft YaHei", 10, "bold"), fg="#2ECC71", bg=self.BG_COLOR,
+        )
+        save_status.pack(side=tk.LEFT, padx=5)
+
         tk.Button(
             btn_frame, text="保存设置", command=self._on_save,
             font=("Microsoft YaHei", 11, "bold"), fg="white", bg="#27AE60",
@@ -76,7 +84,7 @@ class SettingsWindow:
         ).pack(side=tk.RIGHT, padx=5)
 
         tk.Button(
-            btn_frame, text="取消", command=self._on_cancel,
+            btn_frame, text="关闭", command=self._on_cancel,
             font=("Microsoft YaHei", 10), fg=self.FG_COLOR, bg="#7F8C8D",
             activebackground="#6C7A7A", activeforeground="white",
             relief=tk.FLAT, padx=15, pady=5, cursor="hand2",
@@ -349,9 +357,9 @@ class SettingsWindow:
             if self._on_save_callback:
                 self._on_save_callback()
 
-            self._window.destroy()
-            self._window = None
-            messagebox.showinfo("设置已保存", "所有设置已成功保存！")
+            # Show success briefly, keep window open
+            self._save_status_var.set("✓ 已保存")
+            self._window.after(2000, lambda: self._save_status_var.set(""))
 
         except ValueError as e:
             messagebox.showerror("输入错误", str(e))
