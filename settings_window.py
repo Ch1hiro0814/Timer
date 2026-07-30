@@ -206,9 +206,13 @@ class SettingsWindow:
         # ---- Work hours ----
         self._work_start_var = self._make_var(general, "work_start_time", "09:00")
         self._work_end_var = self._make_var(general, "work_end_time", "20:30")
+        self._work_end_early_var = self._make_var(general, "work_end_time_early", "17:30")
+        self._work_end_sat_var = self._make_var(general, "work_end_time_saturday", "18:30")
         self._add_section(scroll_frame, "工作时间", [
-            ("工作开始时间", self._work_start_var),
-            ("工作结束时间", self._work_end_var),
+            ("开始时间", self._work_start_var),
+            ("周二/四 结束", self._work_end_var),
+            ("周三/五 结束", self._work_end_early_var),
+            ("月末周六 结束", self._work_end_sat_var),
         ])
 
         # ---- Health intervals ----
@@ -290,7 +294,9 @@ class SettingsWindow:
         try:
             general_vars = [
                 (self._work_start_var, "work_start_time", "工作开始时间"),
-                (self._work_end_var, "work_end_time", "工作结束时间"),
+                (self._work_end_var, "work_end_time", "周二/四 结束时间"),
+                (self._work_end_early_var, "work_end_time_early", "周一/三/五 结束时间"),
+                (self._work_end_sat_var, "work_end_time_saturday", "月末周六 结束时间"),
                 (self._quiet_start_var, "quiet_hours_start", "午休免打扰开始"),
                 (self._quiet_end_var, "quiet_hours_end", "午休免打扰结束"),
                 (self._quiet2_start_var, "quiet_hours_2_start", "晚餐免打扰开始"),

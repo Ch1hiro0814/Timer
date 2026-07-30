@@ -85,9 +85,14 @@ class ReminderScheduler:
         in_quiet = is_in_quiet_hours(current_time, quiet_start, quiet_end) \
             or is_in_quiet_hours(current_time, quiet2_start, quiet2_end)
 
-        # ---- 3. Define work hours ----
+        # ---- 3. Define work hours (vary by day) ----
         work_start = parse_time_str(self._config.general.get("work_start_time", "09:00"))
-        work_end = parse_time_str(self._config.general.get("work_end_time", "18:00"))
+        if is_last_saturday_of_month(today):
+            work_end = parse_time_str(self._config.general.get("work_end_time_saturday", "18:30"))
+        elif weekday in (2, 4):  # Wed, Fri
+            work_end = parse_time_str(self._config.general.get("work_end_time_early", "17:30"))
+        else:  # Mon, Tue, Thu
+            work_end = parse_time_str(self._config.general.get("work_end_time", "20:30"))
 
         # Collect reminders to show (batch them in case of coincidence)
         reminders_to_show: list[tuple[str, str]] = []
@@ -145,9 +150,8 @@ class ReminderScheduler:
                 entry = schedule[weekday_str]
                 target_time = parse_time_str(entry["time"])
             else:
-                # Use Friday's daily schedule for last-Saturday-week Friday
-                friday_entry = schedule.get("4", {})
-                target_time = parse_time_str(friday_entry.get("time", "20:00"))
+                # Use Friday 17:00 for last-Saturday-week daily report
+                target_time = parse_time_str("17:00")
                 entry = friday_entry
             if time_matches(current_time, target_time):
                 if not self._was_triggered_today("daily_report", now):
@@ -169,7 +173,8 @@ class ReminderScheduler:
                 target_time = parse_time_str(friday_entry.get("time", "17:00"))
                 entry = friday_entry
             msg = entry.get("message", "该写周报了！\n总结本周工作，规划下周计划~ 📊")
-            if weekday == 5:  # Saturday weekly
+            if weekday == 5:  # Saturday weekly → 18:00
+                target_time = parse_time_str("18:00")
                 msg = "该写周报了！\n今天是本月最后一个工作日，总结本周工作吧~ 📊"
             if time_matches(current_time, target_time):
                 if not self._was_triggered_today("weekly_report", now):

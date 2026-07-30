@@ -2,6 +2,8 @@
   "general": {
     "work_start_time": "09:00",
     "work_end_time": "20:30",
+    "work_end_time_early": "17:30",
+    "work_end_time_saturday": "18:30",
     "quiet_hours_start": "12:00",
     "quiet_hours_end": "14:00",
     "quiet_hours_2_start": "17:30",
