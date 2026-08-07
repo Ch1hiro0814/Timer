@@ -57,59 +57,59 @@ class ReminderPopup:
         self._window.protocol("WM_DELETE_WINDOW", self.dismiss)
 
         # ---- Build UI ----
-        main_frame = tk.Frame(self._window, bg=self.BG_COLOR, padx=28, pady=22)
+        main_frame = tk.Frame(self._window, bg=self.BG_COLOR, padx=32, pady=28)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Title label
         title_label = tk.Label(
             main_frame,
             text=title,
-            font=("Microsoft YaHei", 16, "bold"),
+            font=("Microsoft YaHei", 17, "bold"),
             fg=self.FG_COLOR,
             bg=self.BG_COLOR,
         )
-        title_label.pack(pady=(0, 10))
+        title_label.pack(pady=(0, 8))
 
         # Message label
         msg_label = tk.Label(
             main_frame,
             text=message,
             font=("Microsoft YaHei", 12),
-            fg=self.FG_COLOR,
+            fg="#71717A",
             bg=self.BG_COLOR,
             justify=tk.CENTER,
-            wraplength=350,
+            wraplength=360,
         )
-        msg_label.pack(pady=(0, 15))
+        msg_label.pack(pady=(0, 18))
 
         divider = tk.Frame(main_frame, bg=BORDER, height=1)
-        divider.pack(fill=tk.X, pady=(0, 12))
+        divider.pack(fill=tk.X, pady=(0, 14))
 
         # ---- Bottom buttons ----
         btn_frame = tk.Frame(main_frame, bg=self.BG_COLOR)
         btn_frame.pack()
 
-        # Snooze button (left, green)
+        # Snooze button (primary)
         snooze_btn = tk.Button(
             btn_frame,
-            text="🕐 5分钟后",
+            text="稍后提醒",
             command=self.snooze,
             font=("Microsoft YaHei", 10, "bold"),
             fg="white",
-            bg=self.SNOOZE_COLOR,
-            activebackground=self.SNOOZE_HOVER,
+            bg=self.BTN_COLOR,
+            activebackground=self.BTN_HOVER,
             activeforeground="white",
             relief=tk.FLAT,
-            padx=18,
-            pady=7,
+            padx=20,
+            pady=8,
             cursor="hand2",
             highlightthickness=0,
         )
-        snooze_btn.pack(side=tk.LEFT, padx=(0, 8))
-        snooze_btn.bind("<Enter>", lambda e: snooze_btn.configure(bg=self.SNOOZE_HOVER))
-        snooze_btn.bind("<Leave>", lambda e: snooze_btn.configure(bg=self.SNOOZE_COLOR))
+        snooze_btn.pack(side=tk.LEFT, padx=(0, 10))
+        snooze_btn.bind("<Enter>", lambda e: snooze_btn.configure(bg=self.BTN_HOVER))
+        snooze_btn.bind("<Leave>", lambda e: snooze_btn.configure(bg=self.BTN_COLOR))
 
-        # Dismiss button (right, blue with countdown)
+        # Dismiss button (secondary with countdown)
         self._countdown_var = tk.StringVar()
         dismiss_text = f"知道了 ({auto_dismiss}s)" if auto_dismiss > 0 else "知道了"
         self._countdown_var.set(dismiss_text)
@@ -124,8 +124,8 @@ class ReminderPopup:
             activebackground=DISABLED,
             activeforeground=self.FG_COLOR,
             relief=tk.FLAT,
-            padx=18,
-            pady=7,
+            padx=20,
+            pady=8,
             cursor="hand2",
             highlightthickness=1,
             highlightbackground=BORDER,

@@ -16,6 +16,7 @@
     }
 
     * { box-sizing: border-box; }
+    html { scrollbar-gutter: stable; }
     body {
       margin: 0;
       background: var(--bg);
@@ -26,9 +27,9 @@
     }
 
     .app {
-      max-width: 780px;
+      max-width: 580px;
       margin: 0 auto;
-      padding: 28px 24px 90px;
+      padding: 20px 12px 80px;
     }
 
     header { padding-bottom: 16px; }
@@ -76,12 +77,12 @@
       font-weight: 600;
       color: var(--muted);
     }
-    .field.single { max-width: 220px; }
+    .field.single { max-width: 130px; }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 6px;
     }
     .field label {
       display: block;
@@ -102,6 +103,14 @@
       font: inherit;
       outline: none;
     }
+    .field input[type="time"] {
+      width: 104px;
+      max-width: 104px;
+    }
+    .field input[type="number"] {
+      width: 90px;
+      max-width: 90px;
+    }
     .field input:focus,
     .field textarea:focus {
       border-color: var(--text);
@@ -109,6 +118,11 @@
     .field textarea {
       min-height: 90px;
       resize: vertical;
+    }
+    input[type="time"]::-webkit-inner-spin-button,
+    input[type="time"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      display: none;
     }
     .field.full { grid-column: 1 / -1; }
 
@@ -354,6 +368,40 @@
 
     const $ = (id) => document.getElementById(id);
 
+    function pad2(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function bindTimeInputs() {
+      document.querySelectorAll('input[type="time"]').forEach((input) => {
+        input.addEventListener("keydown", (e) => {
+          if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+          e.preventDefault();
+          const parts = input.value.split(":").map((v) => parseInt(v, 10));
+          if (parts.length !== 2 || parts.some((v) => Number.isNaN(v))) return;
+          let hour = parts[0];
+          let minute = parts[1];
+          if (e.key === "ArrowUp") {
+            minute += 1;
+            if (minute >= 60) {
+              minute = 0;
+              hour += 1;
+            }
+            if (hour >= 24) return;
+          } else {
+            minute -= 1;
+            if (minute < 0) {
+              minute = 59;
+              hour -= 1;
+            }
+            if (hour < 0) return;
+          }
+          input.value = pad2(hour) + ":" + pad2(minute);
+        });
+
+      });
+    }
+
     async function api(url, options = {}) {
       const headers = Object.assign({ "X-Auth-Token": token }, options.headers || {});
       const res = await fetch(url, Object.assign({}, options, { headers }));
@@ -503,6 +551,7 @@
     });
 
     $("cancel").addEventListener("click", () => window.close());
+    bindTimeInputs();
     load();
   </script>
 </body>

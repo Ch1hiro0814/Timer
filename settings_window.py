@@ -29,9 +29,9 @@ def _run_webview(port: int, token: str):
     window = webview.create_window(
         "定时提醒 - 设置",
         url,
-        width=860,
-        height=760,
-        min_size=(720, 640),
+        width=580,
+        height=600,
+        min_size=(500, 480),
     )
     webview.start()
 
