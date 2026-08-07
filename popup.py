@@ -3,7 +3,7 @@
 import tkinter as tk
 from typing import Optional, Callable
 
-from theme import ACCENT, ACCENT_DARK, BORDER, DISABLED, SUCCESS, SUCCESS_DARK, SURFACE, TEXT
+from theme import ACCENT, ACCENT_DARK, BORDER, SUCCESS, SUCCESS_DARK, SURFACE, TEXT
 
 
 # Track the currently active popup to avoid stacking multiple popups
@@ -90,49 +90,64 @@ class ReminderPopup:
         btn_frame.pack()
 
         # Snooze button (primary)
-        snooze_btn = tk.Button(
+        snooze_btn = tk.Label(
             btn_frame,
             text="稍后提醒",
-            command=self.snooze,
             font=("Microsoft YaHei", 10, "bold"),
             fg="white",
             bg=self.BTN_COLOR,
-            activebackground=self.BTN_HOVER,
-            activeforeground="white",
-            relief=tk.FLAT,
-            padx=20,
+            padx=18,
             pady=8,
             cursor="hand2",
-            highlightthickness=0,
+            highlightthickness=1,
+            highlightbackground=self.FG_COLOR,
         )
         snooze_btn.pack(side=tk.LEFT, padx=(0, 10))
-        snooze_btn.bind("<Enter>", lambda e: snooze_btn.configure(bg=self.BTN_HOVER))
-        snooze_btn.bind("<Leave>", lambda e: snooze_btn.configure(bg=self.BTN_COLOR))
+        snooze_btn._pressed = False
+
+        def snooze_press(_event):
+            snooze_btn._pressed = True
+
+        def snooze_release(_event):
+            if snooze_btn._pressed:
+                snooze_btn._pressed = False
+                self.snooze()
+
+        snooze_btn.bind("<Button-1>", snooze_press)
+        snooze_btn.bind("<ButtonRelease-1>", snooze_release)
+        snooze_btn.bind("<Leave>", lambda e: setattr(snooze_btn, "_pressed", False))
 
         # Dismiss button (secondary with countdown)
         self._countdown_var = tk.StringVar()
         dismiss_text = f"知道了 ({auto_dismiss}s)" if auto_dismiss > 0 else "知道了"
         self._countdown_var.set(dismiss_text)
 
-        dismiss_btn = tk.Button(
+        dismiss_btn = tk.Label(
             btn_frame,
             textvariable=self._countdown_var,
-            command=self.dismiss,
             font=("Microsoft YaHei", 10),
             fg=self.FG_COLOR,
             bg=self.BG_COLOR,
-            activebackground=DISABLED,
-            activeforeground=self.FG_COLOR,
-            relief=tk.FLAT,
-            padx=20,
+            padx=18,
             pady=8,
             cursor="hand2",
             highlightthickness=1,
             highlightbackground=BORDER,
         )
         dismiss_btn.pack(side=tk.LEFT)
-        dismiss_btn.bind("<Enter>", lambda e: dismiss_btn.configure(bg=DISABLED))
-        dismiss_btn.bind("<Leave>", lambda e: dismiss_btn.configure(bg=self.BG_COLOR))
+        dismiss_btn._pressed = False
+
+        def dismiss_press(_event):
+            dismiss_btn._pressed = True
+
+        def dismiss_release(_event):
+            if dismiss_btn._pressed:
+                dismiss_btn._pressed = False
+                self.dismiss()
+
+        dismiss_btn.bind("<Button-1>", dismiss_press)
+        dismiss_btn.bind("<ButtonRelease-1>", dismiss_release)
+        dismiss_btn.bind("<Leave>", lambda e: setattr(dismiss_btn, "_pressed", False))
 
         # Focus the window
         self._window.focus_force()
