@@ -26,8 +26,14 @@ def is_workday(d: date) -> bool:
 
 
 def is_in_quiet_hours(t: time, quiet_start: time, quiet_end: time) -> bool:
-    """Check if the given time falls within the quiet hours range (inclusive start, exclusive end)."""
-    return quiet_start <= t < quiet_end
+    """Check if the given time falls within the quiet hours range.
+
+    Supports overnight ranges such as 22:00-08:00 when end is before start.
+    The range is inclusive of the start and exclusive of the end.
+    """
+    if quiet_start <= quiet_end:
+        return quiet_start <= t < quiet_end
+    return t >= quiet_start or t < quiet_end
 
 
 def time_matches(t: time, target: time, tolerance_seconds: int = 30) -> bool:

@@ -1,13 +1,13 @@
 """System tray icon and menu management using pystray."""
 
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional, Callable
 
 from PIL import Image, ImageDraw
 
-from utils import parse_time_str
+from utils import is_last_saturday_of_month, parse_time_str
 
 
 def _get_icon_path() -> Optional[str]:
@@ -104,6 +104,8 @@ class TrayManager:
         # Periodic menu refresh for DND countdown display
         self._refresh_after_id = None
         self._was_dnd_active = False
+        self._stopped = False
+        self._last_dnd_remaining = ""
 
     def run(self):
         """Start the system tray icon and block the main thread."""
@@ -115,12 +117,15 @@ class TrayManager:
             self._build_tooltip(),
             menu=self._build_menu(),
         )
-        self._schedule_menu_refresh()
         self._icon.run()
+
+    def start_menu_refresh(self):
+        """Start the periodic menu refresh from the tkinter main thread."""
+        self._refresh_after_id = self._root.after(15000, self._on_menu_refresh_tick)
 
     def stop(self):
         """Stop the tray icon and scheduler."""
-        self._cancel_menu_refresh()
+        self._stopped = True
         if self._scheduler:
             self._scheduler.stop()
         if self._icon:
@@ -138,24 +143,27 @@ class TrayManager:
         return "定时提醒助手"
 
     def _schedule_menu_refresh(self):
-        """Periodically refresh tooltip (cheap). Only rebuild menu on state change."""
+        """Schedule the next menu refresh tick from the tkinter main thread."""
         self._refresh_after_id = self._root.after(15000, self._on_menu_refresh_tick)
 
     def _on_menu_refresh_tick(self):
-        """Update tooltip. Rebuild menu only when DND state transitions."""
+        """Update tooltip, and rebuild the menu when DND state or remaining time changes."""
+        if self._stopped:
+            return
         is_dnd = self._config.is_dnd_active
         if self._icon:
             self._icon.title = self._build_tooltip()  # cheap: string assignment
-            if self._was_dnd_active != is_dnd:
-                # State changed — full menu rebuild
+            dnd_remaining = ""
+            if is_dnd:
+                dnd_until = self._config.dnd_until
+                if dnd_until:
+                    dnd_remaining = _format_remaining(dnd_until)
+            if self._was_dnd_active != is_dnd or dnd_remaining != self._last_dnd_remaining:
+                # State or countdown text changed — full menu rebuild
                 self._icon.menu = self._build_menu()
+                self._last_dnd_remaining = dnd_remaining
         self._was_dnd_active = is_dnd
         self._schedule_menu_refresh()
-
-    def _cancel_menu_refresh(self):
-        if self._refresh_after_id:
-            self._root.after_cancel(self._refresh_after_id)
-            self._refresh_after_id = None
 
     # ======================== DND Actions ========================
 
@@ -172,8 +180,7 @@ class TrayManager:
 
     def _set_dnd_until_end_of_workday(self):
         """Enable DND until the configured work end time today."""
-        work_end_str = self._config.general.get("work_end_time", "20:30")
-        work_end = parse_time_str(work_end_str)
+        work_end = self._get_work_end_for_today()
         until = datetime.now().replace(
             hour=work_end.hour, minute=work_end.minute, second=0, microsecond=0
         )
@@ -185,6 +192,16 @@ class TrayManager:
         if self._icon:
             self._icon.title = self._build_tooltip()
             self._icon.menu = self._build_menu()
+
+    def _get_work_end_for_today(self):
+        """Return the configured work end time for today's weekday."""
+        today = date.today()
+        general = self._config.general
+        if is_last_saturday_of_month(today):
+            return parse_time_str(general.get("work_end_time_saturday", "18:30"))
+        if today.weekday() in (2, 4):
+            return parse_time_str(general.get("work_end_time_early", "17:30"))
+        return parse_time_str(general.get("work_end_time", "20:30"))
 
     def _cancel_dnd(self):
         """Cancel the current DND mode."""

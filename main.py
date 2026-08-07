@@ -12,6 +12,7 @@ and brings the settings window to front.
 import tkinter as tk
 import sys
 import os
+import queue
 import threading
 import traceback
 from datetime import datetime
@@ -87,10 +88,30 @@ def main():
         root.title("定时提醒助手")
         log("Tk root created OK")
 
+        # ---- Main-thread task queue for background threads ----
+        call_queue = queue.Queue()
+
+        def call_on_main(fn):
+            call_queue.put(fn)
+
+        def drain_main_queue():
+            try:
+                while True:
+                    fn = call_queue.get_nowait()
+                    try:
+                        fn()
+                    except Exception as e:
+                        log(f"Main queue callback error: {e}\n{traceback.format_exc()}")
+            except queue.Empty:
+                pass
+            root.after(100, drain_main_queue)
+
+        root.after(100, drain_main_queue)
+
         # ---- Scheduler ----
         log("Starting scheduler...")
         from scheduler import ReminderScheduler
-        scheduler = ReminderScheduler(config, root)
+        scheduler = ReminderScheduler(config, root, log=log, main_call=call_on_main)
         scheduler.start()
         log("Scheduler started OK")
 
@@ -104,12 +125,13 @@ def main():
                     settings.show()
                 except Exception as e:
                     log(f"Error opening settings: {e}")
-            root.after(0, _do)
+            call_on_main(_do)
 
         # ---- Tray in background thread ----
         log("Starting tray thread...")
         from tray_manager import TrayManager
         tray = TrayManager(root, config, scheduler, on_settings=open_settings)
+        tray.start_menu_refresh()
 
         tray_thread = threading.Thread(
             target=_run_tray, args=(tray, log),

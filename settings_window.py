@@ -4,6 +4,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional
 
+from utils import parse_time_str
+
 
 class SettingsWindow:
     """A Toplevel window with tabbed settings for the reminder app.
@@ -200,7 +202,11 @@ class SettingsWindow:
 
         # Bind mouse wheel
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            try:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except tk.TclError:
+                pass
+        self._root.unbind_all("<MouseWheel>")
         canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
         # ---- Work hours ----
@@ -312,6 +318,16 @@ class SettingsWindow:
             for wk, wn in [("4", "周五")]:
                 self._validate_time(self._weekly_time_vars[wk].get(), f"周报 {wn}")
 
+            # Validate work hours are not inverted
+            work_start = parse_time_str(self._work_start_var.get().strip())
+            for var, name in [
+                (self._work_end_var, "周二/四 结束时间"),
+                (self._work_end_early_var, "周三/五 结束时间"),
+                (self._work_end_sat_var, "月末周六 结束时间"),
+            ]:
+                if parse_time_str(var.get().strip()) <= work_start:
+                    raise ValueError(f"{name}必须晚于工作开始时间")
+
             # Validate intervals
             stand_up_int = int(self._stand_up_interval_var.get())
             water_int = int(self._water_interval_var.get())
@@ -371,6 +387,7 @@ class SettingsWindow:
             messagebox.showerror("输入错误", str(e))
 
     def _on_cancel(self):
+        self._root.unbind_all("<MouseWheel>")
         if self._window:
             self._window.destroy()
             self._window = None

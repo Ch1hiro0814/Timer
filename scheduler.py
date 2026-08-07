@@ -2,8 +2,9 @@
 
 import threading
 import time as _time
+import traceback
 from datetime import datetime
-from typing import Optional
+from typing import Callable, Optional
 
 from utils import (
     is_workday,
@@ -21,9 +22,17 @@ from popup import show_reminder
 class ReminderScheduler:
     """Runs in a background thread, evaluating reminder rules every 30 seconds."""
 
-    def __init__(self, config, root):
+    def __init__(
+        self,
+        config,
+        root,
+        log=None,
+        main_call: Optional[Callable[[Callable], None]] = None,
+    ):
         self._config = config
         self._root = root
+        self._log = log
+        self._main_call = main_call
         self._thread: Optional[threading.Thread] = None
         self._running = False
         # Track last triggered times to prevent duplicates
@@ -64,7 +73,8 @@ class ReminderScheduler:
                 if not self._config.is_paused and not self._config.is_dnd_active:
                     self._evaluate_rules()
             except Exception:
-                pass  # Don't let a single error kill the scheduler
+                if self._log:
+                    self._log(f"Scheduler error:\n{traceback.format_exc()}")
             _time.sleep(30)
 
     def _evaluate_rules(self):
@@ -86,6 +96,8 @@ class ReminderScheduler:
             or is_in_quiet_hours(current_time, quiet2_start, quiet2_end)
 
         # ---- 3. Define work hours (vary by day) ----
+        weekday = now.weekday()  # 0=Mon ... 6=Sun
+        weekday_str = str(weekday)
         work_start = parse_time_str(self._config.general.get("work_start_time", "09:00"))
         if is_last_saturday_of_month(today):
             work_end = parse_time_str(self._config.general.get("work_end_time_saturday", "18:30"))
@@ -124,8 +136,6 @@ class ReminderScheduler:
                     self._mark_triggered("water", now)
 
         # ---- Report reminders ----
-        weekday = now.weekday()  # 0=Mon ... 6=Sun
-        weekday_str = str(weekday)
         last_sat_week = in_last_saturday_week(today)
 
         # Determine what kind of report today deserves
@@ -151,8 +161,14 @@ class ReminderScheduler:
                 target_time = parse_time_str(entry["time"])
             else:
                 # Use Friday 17:00 for last-Saturday-week daily report
+                daily_msg = self._config.daily_report_config.get(
+                    "schedule", {}
+                ).get("0", {}).get(
+                    "message",
+                    "该写日报了！\n回顾今天的工作内容，记录成果~ 📝",
+                )
                 target_time = parse_time_str("17:00")
-                entry = friday_entry
+                entry = {"message": daily_msg}
             if time_matches(current_time, target_time):
                 if not self._was_triggered_today("daily_report", now):
                     reminders_to_show.append((
@@ -187,7 +203,10 @@ class ReminderScheduler:
 
             if len(reminders_to_show) == 1:
                 title, message = reminders_to_show[0]
-                show_reminder(self._root, title, message, auto_dismiss)
+                show_reminder(
+                    self._root, title, message, auto_dismiss,
+                    schedule=self._main_call,
+                )
             else:
                 # Combine multiple reminders into one popup
                 titles = [r[0] for r in reminders_to_show]
@@ -197,7 +216,10 @@ class ReminderScheduler:
                     f"【{t.split(' ', 1)[1] if ' ' in t else t}】\n{m}"
                     for t, m in reminders_to_show
                 )
-                show_reminder(self._root, combined_title, combined_message, auto_dismiss)
+                show_reminder(
+                    self._root, combined_title, combined_message, auto_dismiss,
+                    schedule=self._main_call,
+                )
 
     # ---- Duplicate prevention helpers (thread-safe) ----
 

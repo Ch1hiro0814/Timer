@@ -191,14 +191,25 @@ class ReminderPopup:
         self._window.geometry(f"+{x}+{y}")
 
 
-def show_reminder(root: tk.Tk, reminder_type: str, message: str, auto_dismiss: int = 30):
+def show_reminder(
+    root: tk.Tk,
+    reminder_type: str,
+    message: str,
+    auto_dismiss: int = 30,
+    schedule: Optional[Callable[[Callable], None]] = None,
+):
     """
-    Thread-safe entry point for showing a reminder popup.
-    Schedules the popup creation on the tkinter main thread.
+    Entry point for showing a reminder popup.
+    ``schedule`` must marshal the callback onto the tkinter main thread when
+    called from a background thread; otherwise the callback is queued with
+    ``root.after``.
     """
     def _show():
         popup = ReminderPopup(root, reminder_type, message, auto_dismiss)
         popup.center_on_screen()
         return popup
 
-    root.after(0, _show)
+    if schedule is not None:
+        schedule(_show)
+    else:
+        root.after(0, _show)
