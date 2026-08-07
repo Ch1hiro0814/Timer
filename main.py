@@ -1,9 +1,10 @@
 """Timer Reminder Application - Entry Point.
 
 Architecture:
-  - Main thread: tkinter mainloop (popups, settings windows, event processing)
+  - Main thread: tkinter mainloop (popups, event processing)
   - Background daemon thread: pystray system tray icon
   - Background daemon thread: reminder scheduler
+  - Background daemon thread: local web settings server
 
 Single-instance: second launch writes a signal file; first instance detects it
 and brings the settings window to front.
@@ -13,6 +14,7 @@ import tkinter as tk
 import sys
 import os
 import queue
+import multiprocessing
 import threading
 import traceback
 from datetime import datetime
@@ -191,4 +193,5 @@ def _run_tray(tray, log):
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     main()

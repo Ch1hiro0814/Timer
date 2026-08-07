@@ -7,7 +7,7 @@ from typing import Optional, Callable
 
 from PIL import Image, ImageDraw
 
-from utils import is_last_saturday_of_month, parse_time_str
+from utils import get_work_end_time_str, is_last_saturday_of_month, parse_time_str
 
 
 def _get_icon_path() -> Optional[str]:
@@ -37,8 +37,8 @@ def generate_default_icon(size: int = 64) -> Image.Image:
     # Outer circle
     draw.ellipse(
         [margin, margin, size - margin, size - margin],
-        fill=(44, 62, 80, 255),
-        outline=(52, 152, 219, 255),
+        fill=(17, 17, 17, 255),
+        outline=(51, 51, 51, 255),
         width=max(2, size // 20),
     )
 
@@ -199,9 +199,7 @@ class TrayManager:
         general = self._config.general
         if is_last_saturday_of_month(today):
             return parse_time_str(general.get("work_end_time_saturday", "18:30"))
-        if today.weekday() in (2, 4):
-            return parse_time_str(general.get("work_end_time_early", "17:30"))
-        return parse_time_str(general.get("work_end_time", "20:30"))
+        return parse_time_str(get_work_end_time_str(general, today.weekday()))
 
     def _cancel_dnd(self):
         """Cancel the current DND mode."""

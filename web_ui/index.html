@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>定时提醒设置</title>
+  <style>
+    :root {
+      --bg: #F7F7F8;
+      --surface: #FFFFFF;
+      --text: #111111;
+      --muted: #71717A;
+      --border: #E4E4E7;
+      --input-border: #D4D4D8;
+      --danger: #DC2626;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .app {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 28px 24px 90px;
+    }
+
+    header { padding-bottom: 16px; }
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tabs button {
+      appearance: none;
+      background: none;
+      border: 0;
+      padding: 10px 2px;
+      font: inherit;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tabs button.active {
+      color: var(--text);
+      border-bottom-color: var(--text);
+      font-weight: 600;
+    }
+
+    .panel { display: none; padding-top: 8px; }
+    .panel.active { display: block; }
+
+    .section { margin: 28px 0; }
+    .section h2 {
+      margin: 0 0 14px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .subheading {
+      margin: 16px 0 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .field.single { max-width: 220px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 14px;
+    }
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .field input[type="text"],
+    .field input[type="number"],
+    .field input[type="time"],
+    .field textarea {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid var(--input-border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      outline: none;
+    }
+    .field input:focus,
+    .field textarea:focus {
+      border-color: var(--text);
+    }
+    .field textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+    .field.full { grid-column: 1 / -1; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .toggle-row span { font-weight: 600; }
+    .toggle {
+      appearance: none;
+      width: 40px;
+      height: 22px;
+      border-radius: 999px;
+      background: var(--input-border);
+      position: relative;
+      cursor: pointer;
+      outline: none;
+    }
+    .toggle:checked { background: var(--text); }
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #FFFFFF;
+      transition: left 0.15s ease;
+    }
+    .toggle:checked::after { left: 20px; }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 26px 0;
+    }
+
+    .actions {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+    .actions .status {
+      margin-right: auto;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .actions .status.ok { color: var(--text); }
+    .actions button {
+      padding: 9px 18px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+    .actions button.primary {
+      background: var(--text);
+      border-color: var(--text);
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header><h1>定时提醒设置</h1></header>
+
+    <nav class="tabs">
+      <button data-panel="health" class="active">健康提醒</button>
+      <button data-panel="report">报告提醒</button>
+      <button data-panel="general">通用设置</button>
+    </nav>
+
+    <section id="health" class="panel active">
+      <div class="section">
+        <h2>站立放松</h2>
+        <div class="toggle-row">
+          <span>启用</span>
+          <input id="stand_enabled" type="checkbox" class="toggle">
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label>提醒间隔（分钟）</label>
+            <input id="stand_interval" type="number" min="1">
+          </div>
+          <div class="field full">
+            <label>提醒文字</label>
+            <textarea id="stand_message"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section">
+        <h2>喝水</h2>
+        <div class="toggle-row">
+          <span>启用</span>
+          <input id="water_enabled" type="checkbox" class="toggle">
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label>提醒间隔（分钟）</label>
+            <input id="water_interval" type="number" min="1">
+          </div>
+          <div class="field full">
+            <label>提醒文字</label>
+            <textarea id="water_message"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="report" class="panel">
+      <div class="section">
+        <h2>日报</h2>
+        <div class="toggle-row">
+          <span>启用</span>
+          <input id="daily_enabled" type="checkbox" class="toggle">
+        </div>
+        <div class="grid">
+          <div class="field full">
+            <label>提醒文字</label>
+            <textarea id="daily_message"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section">
+        <h2>周报</h2>
+        <div class="toggle-row">
+          <span>启用</span>
+          <input id="weekly_enabled" type="checkbox" class="toggle">
+        </div>
+        <div class="grid">
+          <div class="field full">
+            <label>提醒文字</label>
+            <textarea id="weekly_message"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="general" class="panel">
+      <div class="section">
+        <h2>工作时间</h2>
+        <div class="subheading">开始时间</div>
+        <div class="field single">
+          <input id="work_start" type="time">
+        </div>
+        <div class="subheading">结束时间</div>
+        <div class="grid">
+          <div class="field"><label>周一</label><input id="work_end_mon" type="time"></div>
+          <div class="field"><label>周二</label><input id="work_end_tue" type="time"></div>
+          <div class="field"><label>周三</label><input id="work_end_wed" type="time"></div>
+          <div class="field"><label>周四</label><input id="work_end_thu" type="time"></div>
+          <div class="field"><label>周五</label><input id="work_end_fri" type="time"></div>
+          <div class="field"><label>月末周六</label><input id="work_end_sat" type="time"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section">
+        <h2>午休免打扰</h2>
+        <div class="grid">
+          <div class="field"><label>开始</label><input id="quiet_start" type="time"></div>
+          <div class="field"><label>结束</label><input id="quiet_end" type="time"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section">
+        <h2>晚餐免打扰</h2>
+        <div class="grid">
+          <div class="field"><label>开始</label><input id="quiet2_start" type="time"></div>
+          <div class="field"><label>结束</label><input id="quiet2_end" type="time"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section">
+        <h2>日报时间</h2>
+        <div class="grid">
+          <div class="field"><label>周一</label><input id="daily_time_0" type="time"></div>
+          <div class="field"><label>周二</label><input id="daily_time_1" type="time"></div>
+          <div class="field"><label>周三</label><input id="daily_time_2" type="time"></div>
+          <div class="field"><label>周四</label><input id="daily_time_3" type="time"></div>
+          <div class="field"><label>周五</label><input id="daily_time_4" type="time"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section">
+        <h2>周报时间</h2>
+        <div class="grid">
+          <div class="field"><label>周五</label><input id="weekly_time_4" type="time"></div>
+          <div class="field"><label>周六</label><input id="weekly_time_5" type="time"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section">
+        <h2>弹窗</h2>
+        <div class="grid">
+          <div class="field">
+            <label>自动关闭（秒）</label>
+            <input id="auto_dismiss" type="number" min="0">
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="actions">
+    <span id="status" class="status"></span>
+    <button id="cancel">取消</button>
+    <button id="save" class="primary">保存设置</button>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const token = params.get("token") || "";
+
+    const $ = (id) => document.getElementById(id);
+
+    async function api(url, options = {}) {
+      const headers = Object.assign({ "X-Auth-Token": token }, options.headers || {});
+      const res = await fetch(url, Object.assign({}, options, { headers }));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "请求失败");
+      return data;
+    }
+
+    function setVal(id, value) {
+      $(id).value = value == null ? "" : value;
+    }
+
+    function setChecked(id, value) {
+      $(id).checked = Boolean(value);
+    }
+
+    function populate(data) {
+      const g = data.general || {};
+      const s = data.stand_up || {};
+      const w = data.water || {};
+      const d = data.daily_report || {};
+      const wk = data.weekly_report || {};
+      const ds = d.schedule || {};
+      const ws = wk.schedule || {};
+
+      setChecked("stand_enabled", s.enabled);
+      setVal("stand_interval", s.interval_minutes);
+      setVal("stand_message", s.message);
+      setChecked("water_enabled", w.enabled);
+      setVal("water_interval", w.interval_minutes);
+      setVal("water_message", w.message);
+
+      setChecked("daily_enabled", d.enabled);
+      setVal("daily_message", (ds["0"] || {}).message);
+      setChecked("weekly_enabled", wk.enabled);
+      setVal("weekly_message", (ws["4"] || {}).message);
+
+      setVal("work_start", g.work_start_time);
+      ["mon", "tue", "wed", "thu", "fri"].forEach((day, i) => {
+        setVal("work_end_" + day, g["work_end_time_" + day]);
+      });
+      setVal("work_end_sat", g.work_end_time_saturday);
+      setVal("quiet_start", g.quiet_hours_start);
+      setVal("quiet_end", g.quiet_hours_end);
+      setVal("quiet2_start", g.quiet_hours_2_start);
+      setVal("quiet2_end", g.quiet_hours_2_end);
+
+      for (let i = 0; i <= 4; i++) {
+        setVal("daily_time_" + i, (ds[String(i)] || {}).time);
+      }
+      setVal("weekly_time_4", (ws["4"] || {}).time);
+      setVal("weekly_time_5", (ws["5"] || {}).time);
+      setVal("auto_dismiss", g.auto_dismiss_seconds);
+    }
+
+    function collect() {
+      const time = (id) => $(id).value;
+      const dailySchedule = {};
+      for (let i = 0; i <= 4; i++) {
+        dailySchedule[String(i)] = {
+          time: time("daily_time_" + i),
+          message: $("daily_message").value
+        };
+      }
+      const weeklySchedule = {
+        "4": {
+          time: time("weekly_time_4"),
+          message: $("weekly_message").value
+        },
+        "5": {
+          time: time("weekly_time_5")
+        }
+      };
+
+      return {
+        general: {
+          work_start_time: time("work_start"),
+          work_end_time_mon: time("work_end_mon"),
+          work_end_time_tue: time("work_end_tue"),
+          work_end_time_wed: time("work_end_wed"),
+          work_end_time_thu: time("work_end_thu"),
+          work_end_time_fri: time("work_end_fri"),
+          work_end_time_saturday: time("work_end_sat"),
+          quiet_hours_start: time("quiet_start"),
+          quiet_hours_end: time("quiet_end"),
+          quiet_hours_2_start: time("quiet2_start"),
+          quiet_hours_2_end: time("quiet2_end"),
+          auto_dismiss_seconds: Number($("auto_dismiss").value)
+        },
+        stand_up: {
+          enabled: $("stand_enabled").checked,
+          interval_minutes: Number($("stand_interval").value),
+          message: $("stand_message").value
+        },
+        water: {
+          enabled: $("water_enabled").checked,
+          interval_minutes: Number($("water_interval").value),
+          message: $("water_message").value
+        },
+        daily_report: {
+          enabled: $("daily_enabled").checked,
+          schedule: dailySchedule
+        },
+        weekly_report: {
+          enabled: $("weekly_enabled").checked,
+          schedule: weeklySchedule
+        }
+      };
+    }
+
+    async function load() {
+      try {
+        const data = await api("/api/config");
+        populate(data);
+      } catch (e) {
+        showStatus(e.message, false);
+      }
+    }
+
+    function showStatus(text, ok) {
+      const el = $("status");
+      el.textContent = text;
+      el.className = "status" + (ok ? " ok" : "");
+      setTimeout(() => { el.textContent = ""; el.className = "status"; }, 2000);
+    }
+
+    document.querySelectorAll(".tabs button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.panel).classList.add("active");
+      });
+    });
+
+    $("save").addEventListener("click", async () => {
+      try {
+        await api("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(collect())
+        });
+        showStatus("已保存", true);
+      } catch (e) {
+        showStatus(e.message, false);
+      }
+    });
+
+    $("cancel").addEventListener("click", () => window.close());
+    load();
+  </script>
+</body>
+</html>

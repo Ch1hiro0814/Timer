@@ -3,6 +3,8 @@
 import tkinter as tk
 from typing import Optional, Callable
 
+from theme import ACCENT, ACCENT_DARK, BORDER, DISABLED, SUCCESS, SUCCESS_DARK, SURFACE, TEXT
+
 
 # Track the currently active popup to avoid stacking multiple popups
 _active_popup: Optional['ReminderPopup'] = None
@@ -11,13 +13,13 @@ _active_popup: Optional['ReminderPopup'] = None
 class ReminderPopup:
     """A centered, always-on-top popup window for reminders."""
 
-    BG_COLOR = "#2C3E50"
-    FG_COLOR = "#ECF0F1"
-    ACCENT_COLOR = "#3498DB"
-    BTN_COLOR = "#2980B9"
-    BTN_HOVER = "#1A6FA0"
-    SNOOZE_COLOR = "#27AE60"
-    SNOOZE_HOVER = "#219A52"
+    BG_COLOR = SURFACE
+    FG_COLOR = TEXT
+    ACCENT_COLOR = ACCENT
+    BTN_COLOR = ACCENT
+    BTN_HOVER = ACCENT_DARK
+    SNOOZE_COLOR = SUCCESS
+    SNOOZE_HOVER = SUCCESS_DARK
 
     def __init__(
         self,
@@ -55,7 +57,7 @@ class ReminderPopup:
         self._window.protocol("WM_DELETE_WINDOW", self.dismiss)
 
         # ---- Build UI ----
-        main_frame = tk.Frame(self._window, bg=self.BG_COLOR, padx=30, pady=20)
+        main_frame = tk.Frame(self._window, bg=self.BG_COLOR, padx=28, pady=22)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Title label
@@ -63,7 +65,7 @@ class ReminderPopup:
             main_frame,
             text=title,
             font=("Microsoft YaHei", 16, "bold"),
-            fg=self.ACCENT_COLOR,
+            fg=self.FG_COLOR,
             bg=self.BG_COLOR,
         )
         title_label.pack(pady=(0, 10))
@@ -80,6 +82,9 @@ class ReminderPopup:
         )
         msg_label.pack(pady=(0, 15))
 
+        divider = tk.Frame(main_frame, bg=BORDER, height=1)
+        divider.pack(fill=tk.X, pady=(0, 12))
+
         # ---- Bottom buttons ----
         btn_frame = tk.Frame(main_frame, bg=self.BG_COLOR)
         btn_frame.pack()
@@ -95,9 +100,10 @@ class ReminderPopup:
             activebackground=self.SNOOZE_HOVER,
             activeforeground="white",
             relief=tk.FLAT,
-            padx=16,
-            pady=6,
+            padx=18,
+            pady=7,
             cursor="hand2",
+            highlightthickness=0,
         )
         snooze_btn.pack(side=tk.LEFT, padx=(0, 8))
         snooze_btn.bind("<Enter>", lambda e: snooze_btn.configure(bg=self.SNOOZE_HOVER))
@@ -113,18 +119,20 @@ class ReminderPopup:
             textvariable=self._countdown_var,
             command=self.dismiss,
             font=("Microsoft YaHei", 10),
-            fg="white",
-            bg=self.BTN_COLOR,
-            activebackground=self.BTN_HOVER,
-            activeforeground="white",
+            fg=self.FG_COLOR,
+            bg=self.BG_COLOR,
+            activebackground=DISABLED,
+            activeforeground=self.FG_COLOR,
             relief=tk.FLAT,
-            padx=16,
-            pady=6,
+            padx=18,
+            pady=7,
             cursor="hand2",
+            highlightthickness=1,
+            highlightbackground=BORDER,
         )
         dismiss_btn.pack(side=tk.LEFT)
-        dismiss_btn.bind("<Enter>", lambda e: dismiss_btn.configure(bg=self.BTN_HOVER))
-        dismiss_btn.bind("<Leave>", lambda e: dismiss_btn.configure(bg=self.BTN_COLOR))
+        dismiss_btn.bind("<Enter>", lambda e: dismiss_btn.configure(bg=DISABLED))
+        dismiss_btn.bind("<Leave>", lambda e: dismiss_btn.configure(bg=self.BG_COLOR))
 
         # Focus the window
         self._window.focus_force()

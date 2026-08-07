@@ -13,6 +13,7 @@ from utils import (
     is_same_period,
     is_same_day,
     parse_time_str,
+    get_work_end_time_str,
     in_last_saturday_week,
     is_last_saturday_of_month,
 )
@@ -49,15 +50,24 @@ class ReminderScheduler:
         """Start the scheduler in a daemon background thread."""
         if self._running:
             return
-        # Initialize last-triggered timestamps to now so the first tick
-        # doesn't fire reminders that should have already happened.
         now = datetime.now()
-        with self._lock:
-            for key in self._last_triggered:
-                self._last_triggered[key] = now
+        self._initialize_last_triggered(now)
         self._running = True
         self._thread = threading.Thread(target=self._run_loop, daemon=True, name="ReminderScheduler")
         self._thread.start()
+
+    def _initialize_last_triggered(self, now: datetime):
+        """Set duplicate-prevention baselines at startup.
+
+        Health reminders use the current time so the first interval starts
+        cleanly; report reminders stay unset so a report scheduled later on
+        the same day can still fire.
+        """
+        with self._lock:
+            self._last_triggered["stand_up"] = now
+            self._last_triggered["water"] = now
+            self._last_triggered["daily_report"] = None
+            self._last_triggered["weekly_report"] = None
 
     def stop(self):
         """Stop the scheduler."""
@@ -101,10 +111,8 @@ class ReminderScheduler:
         work_start = parse_time_str(self._config.general.get("work_start_time", "09:00"))
         if is_last_saturday_of_month(today):
             work_end = parse_time_str(self._config.general.get("work_end_time_saturday", "18:30"))
-        elif weekday in (2, 4):  # Wed, Fri
-            work_end = parse_time_str(self._config.general.get("work_end_time_early", "17:30"))
-        else:  # Mon, Tue, Thu
-            work_end = parse_time_str(self._config.general.get("work_end_time", "20:30"))
+        else:
+            work_end = parse_time_str(get_work_end_time_str(self._config.general, weekday))
 
         # Collect reminders to show (batch them in case of coincidence)
         reminders_to_show: list[tuple[str, str]] = []
@@ -190,8 +198,12 @@ class ReminderScheduler:
                 entry = friday_entry
             msg = entry.get("message", "该写周报了！\n总结本周工作，规划下周计划~ 📊")
             if weekday == 5:  # Saturday weekly → 18:00
-                target_time = parse_time_str("18:00")
-                msg = "该写周报了！\n今天是本月最后一个工作日，总结本周工作吧~ 📊"
+                saturday_entry = schedule.get("5", {})
+                target_time = parse_time_str(saturday_entry.get("time", "18:00"))
+                msg = saturday_entry.get(
+                    "message",
+                    "该写周报了！\n今天是本月最后一个工作日，总结本周工作吧~ 📊",
+                )
             if time_matches(current_time, target_time):
                 if not self._was_triggered_today("weekly_report", now):
                     reminders_to_show.append(("📊 周报提醒", msg))

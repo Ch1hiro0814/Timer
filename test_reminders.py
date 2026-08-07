@@ -3,7 +3,7 @@ import unittest
 
 import scheduler as sched
 import tray_manager as tray
-from utils import is_in_quiet_hours, parse_time_str
+from utils import get_work_end_time_str, is_in_quiet_hours, parse_time_str
 
 
 class StubConfig:
@@ -13,6 +13,11 @@ class StubConfig:
                 "work_start_time": "09:00",
                 "work_end_time": "20:30",
                 "work_end_time_early": "17:30",
+                "work_end_time_mon": "20:30",
+                "work_end_time_tue": "20:30",
+                "work_end_time_wed": "17:30",
+                "work_end_time_thu": "20:30",
+                "work_end_time_fri": "17:30",
                 "work_end_time_saturday": "18:30",
                 "quiet_hours_start": "12:00",
                 "quiet_hours_end": "14:00",
@@ -37,12 +42,14 @@ class StubConfig:
                     "1": {"time": "20:00", "message": "daily"},
                     "2": {"time": "17:00", "message": "daily"},
                     "3": {"time": "20:00", "message": "daily"},
+                    "4": {"time": "17:00", "message": "daily"},
                 },
             },
             "weekly_report": {
                 "enabled": True,
                 "schedule": {
                     "4": {"time": "17:00", "message": "weekly"},
+                    "5": {"time": "18:00", "message": "weekly-sat"},
                 },
             },
         }
@@ -112,9 +119,12 @@ class SchedulerTests(unittest.TestCase):
         self.captured.append((title, message))
 
     def _evaluate(self, when, health_enabled=False):
+        self._evaluate_with_config(StubConfig(health_enabled=health_enabled), when)
+
+    def _evaluate_with_config(self, config, when):
         FakeDateTime.now_value = when
         scheduler = sched.ReminderScheduler(
-            StubConfig(health_enabled=health_enabled),
+            config,
             None,
             main_call=lambda fn: None,
         )
@@ -132,6 +142,38 @@ class SchedulerTests(unittest.TestCase):
 
     def test_last_saturday_schedules_weekly_report(self):
         self._evaluate(dt.datetime(2026, 8, 29, 18, 0, 0))
+        self.assertEqual(len(self.captured), 1)
+        self.assertIn("周报", self.captured[0][0])
+
+    def test_special_report_times_are_configurable(self):
+        config = StubConfig(health_enabled=False)
+        config.data["daily_report"]["schedule"]["4"]["time"] = "16:30"
+        config.data["weekly_report"]["schedule"]["5"]["time"] = "19:00"
+
+        self._evaluate_with_config(
+            config,
+            dt.datetime(2026, 8, 28, 16, 30, 0),
+        )
+        self.assertEqual(self.captured[-1][1], "daily")
+
+        self._evaluate_with_config(
+            config,
+            dt.datetime(2026, 8, 29, 19, 0, 0),
+        )
+        self.assertEqual(self.captured[-1][1], "weekly-sat")
+
+    def test_start_does_not_suppress_weekly_report_later_same_day(self):
+        scheduler = sched.ReminderScheduler(
+            StubConfig(health_enabled=False),
+            None,
+            main_call=lambda fn: None,
+        )
+        FakeDateTime.now_value = dt.datetime(2026, 8, 7, 9, 0, 0)
+        scheduler._initialize_last_triggered(FakeDateTime.now_value)
+
+        FakeDateTime.now_value = dt.datetime(2026, 8, 7, 17, 0, 0)
+        scheduler._evaluate_rules()
+
         self.assertEqual(len(self.captured), 1)
         self.assertIn("周报", self.captured[0][0])
 
@@ -165,6 +207,38 @@ class SchedulerTests(unittest.TestCase):
                 manager._get_work_end_for_today().strftime("%H:%M"),
                 expected,
             )
+
+    def test_work_end_times_are_independent(self):
+        config = StubConfig()
+        config.data["general"].update({
+            "work_end_time_mon": "20:00",
+            "work_end_time_tue": "19:00",
+            "work_end_time_wed": "16:00",
+            "work_end_time_thu": "19:30",
+            "work_end_time_fri": "18:00",
+        })
+        manager = tray.TrayManager(None, config, None)
+        cases = [
+            (dt.date(2026, 8, 3), "20:00"),
+            (dt.date(2026, 8, 4), "19:00"),
+            (dt.date(2026, 8, 5), "16:00"),
+            (dt.date(2026, 8, 6), "19:30"),
+            (dt.date(2026, 8, 7), "18:00"),
+        ]
+        for day, expected in cases:
+            FakeDate.today_value = day
+            self.assertEqual(
+                manager._get_work_end_for_today().strftime("%H:%M"),
+                expected,
+            )
+
+    def test_work_end_time_falls_back_to_legacy_key(self):
+        config = StubConfig()
+        config.data["general"].pop("work_end_time_wed")
+        self.assertEqual(
+            get_work_end_time_str(config.data["general"], 2),
+            "17:30",
+        )
 
 
 if __name__ == "__main__":

@@ -67,6 +67,35 @@ def parse_time_str(time_str: str) -> time:
     return time(hour=int(parts[0]), minute=int(parts[1]))
 
 
+WEEKDAY_END_KEYS = {
+    0: "work_end_time_mon",
+    1: "work_end_time_tue",
+    2: "work_end_time_wed",
+    3: "work_end_time_thu",
+    4: "work_end_time_fri",
+}
+
+_WEEKDAY_END_FALLBACK_KEYS = {
+    0: "work_end_time",
+    1: "work_end_time",
+    2: "work_end_time_early",
+    3: "work_end_time",
+    4: "work_end_time_early",
+}
+
+
+def get_work_end_time_str(general: dict, weekday: int, default: str = "20:30") -> str:
+    """Return the configured work end time for a weekday (0=Mon ... 4=Fri)."""
+    key = WEEKDAY_END_KEYS.get(weekday)
+    if key is None:
+        return default
+    value = general.get(key)
+    if value:
+        return value
+    fallback = _WEEKDAY_END_FALLBACK_KEYS[weekday]
+    return general.get(fallback, default)
+
+
 def get_last_saturday_of_month(year: int, month: int) -> date:
     """Return the date of the last Saturday in the given month."""
     if month == 12:

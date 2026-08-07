@@ -71,6 +71,11 @@ class ConfigManager:
                 "work_start_time": "09:00",
                 "work_end_time": "20:30",
                 "work_end_time_early": "17:30",
+                "work_end_time_mon": "20:30",
+                "work_end_time_tue": "20:30",
+                "work_end_time_wed": "17:30",
+                "work_end_time_thu": "20:30",
+                "work_end_time_fri": "17:30",
                 "work_end_time_saturday": "18:30",
                 "quiet_hours_start": "12:00",
                 "quiet_hours_end": "14:00",
@@ -96,12 +101,14 @@ class ConfigManager:
                     "1": {"time": "20:00", "message": "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"},
                     "2": {"time": "17:00", "message": "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"},
                     "3": {"time": "20:00", "message": "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"},
+                    "4": {"time": "17:00", "message": "该写日报了！\n回顾今天的工作内容，记录成果~ 📝"},
                 },
             },
             "weekly_report": {
                 "enabled": True,
                 "schedule": {
                     "4": {"time": "17:00", "message": "该写周报了！\n总结本周工作，规划下周计划~ 📊"},
+                    "5": {"time": "18:00", "message": "该写周报了！\n今天是本月最后一个工作日，总结本周工作吧~ 📊"},
                 },
             },
         }
